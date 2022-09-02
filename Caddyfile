@@ -1,0 +1,15 @@
+doridian.net {
+    root * /srv
+
+    header {
+        Strict-Transport-Security max-age=31536000; preload; includeSubDomains
+    }
+}
+
+www.doridian.net, doridian.de, www.doridian.de, doridian.com, www.doridian.com, doridian.org, www.doridian.org, as207618.net, www.as207618.net, pawnode.com, www.pawnode.com {
+    redir https://doridian.net
+
+    header {
+        Strict-Transport-Security max-age=31536000; preload; includeSubDomains
+    }
+}

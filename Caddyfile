@@ -2,7 +2,7 @@ doridian.net {
     root * /srv
 
     header {
-        Strict-Transport-Security max-age=31536000; preload; includeSubDomains
+        Strict-Transport-Security "max-age=31536000; preload; includeSubDomains"
     }
 }
 
@@ -10,6 +10,6 @@ www.doridian.net, doridian.de, www.doridian.de, doridian.com, www.doridian.com, 
     redir https://doridian.net
 
     header {
-        Strict-Transport-Security max-age=31536000; preload; includeSubDomains
+        Strict-Transport-Security "max-age=31536000; preload; includeSubDomains"
     }
 }

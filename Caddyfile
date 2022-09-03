@@ -1,5 +1,7 @@
 doridian.net {
     root * /srv
+    encode gzip
+    file_server
 
     header {
         Strict-Transport-Security "max-age=31536000; preload; includeSubDomains"

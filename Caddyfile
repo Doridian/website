@@ -1,3 +1,6 @@
+log
+protocols h1 h2 h2c
+
 doridian.net {
     root * /srv
     encode gzip

@@ -3,9 +3,7 @@ doridian.net {
     encode gzip
     file_server
 
-    log {
-        format console
-    }
+    log
 
     header {
         Strict-Transport-Security "max-age=31536000; preload; includeSubDomains"
@@ -15,9 +13,7 @@ doridian.net {
 www.doridian.net, doridian.de, www.doridian.de {
     redir https://doridian.net
 
-    log {
-        format console
-    }
+    log
 
     header {
         Strict-Transport-Security "max-age=31536000; preload; includeSubDomains"

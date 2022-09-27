@@ -4,7 +4,6 @@ doridian.net {
     file_server
 
     log
-    protocols h1 h2 h2c
 
     header {
         Strict-Transport-Security "max-age=31536000; preload; includeSubDomains"
@@ -15,7 +14,6 @@ www.doridian.net, doridian.de, www.doridian.de {
     redir https://doridian.net
 
     log
-    protocols h1 h2 h2c
 
     header {
         Strict-Transport-Security "max-age=31536000; preload; includeSubDomains"

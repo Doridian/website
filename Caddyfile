@@ -8,7 +8,7 @@ doridian.net {
     }
 }
 
-www.doridian.net, doridian.de, www.doridian.de, doridian.com, www.doridian.com, doridian.org, www.doridian.org, as207618.net, www.as207618.net, pawnode.com, www.pawnode.com {
+www.doridian.net, doridian.de, www.doridian.de {
     redir https://doridian.net
 
     header {

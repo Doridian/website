@@ -84,7 +84,6 @@ class IPGeoFeedValidator:
 
     ############################################################
     def _validate_fields(self, fields: list[str]) -> bool:
-        is_correct = True
         self._is_correct_line = True
         self._line_region_country = ""
         self._line_country = ""

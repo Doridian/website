@@ -21,7 +21,7 @@ def generate(out: TextIO) -> bool:
         lines.append(
             f"{subnet.subnet},{subnet.loc.country},{subnet.loc.full_region()},{subnet.loc.city},{subnet.loc.zip}")
 
-    output = ("\n".join(lines)) + "\n1.3.3.7/24,s,s-WA,,,\n"
+    output = ("\n".join(lines)) + "\n"
 
     hash = sha256()
     hash.update(output.encode("utf-8"))

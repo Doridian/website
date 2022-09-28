@@ -1,202 +1,90 @@
-#!/usr/bin/python
-#
-# Copyright (c) 2012 IETF Trust and the persons identified as
-# authors of the code.  All rights reserved.  Redistribution and use
-# in source and binary forms, with or without modification, is
-# permitted pursuant to, and subject to the license terms contained
-# in, the Simplified BSD License set forth in Section 4.c of the
-# IETF Trust"s Legal Provisions Relating to IETF
-# Documents (http://trustee.ietf.org/license-info).
+from ipaddress import ip_network
+from typing import TextIO
+from data import ValidationError
 
-"""Simple format validator for self-published ipgeo feeds.
-
-    This tool reads CSV data in the self-published ipgeo feed format
-    from the standard input and performs basic validation.  It is
-    intended for use by feed publishers before launching a feed.
-    """
-
-import csv
-import ipaddress
-import sys
-from typing import Iterable, TextIO
-
-
-class IPGeoFeedValidator:
-    had_errors: bool
-
+class GeoFeedValidator:
+    errors: list[ValidationError]
     _line_number: int
-    _output_stream: TextIO
-    _is_correct_line: bool
-    _line_region_country: str
-    _line_country: str
+    _line: str
 
     def __init__(self) -> None:
+        self.errors = []
         self._line_number = 0
-        self._is_correct_line = False
-        self._line_region_country = ""
-        self._line_country = ""
-        self.had_errors = False
-        self.set_output_stream(sys.stderr)
+        self._line = ""
 
-    def validate(self, feed: Iterable[str]) -> None:
-        """Check validity of an IPGeo feed.
+    def _report_error(self, err: str) -> None:
+        self.errors.append(ValidationError(line=self._line, line_number=self._line_number, error=err))
 
-        Args:
-          feed: iterable with feed lines
-        """
+    def _check_country_code(self, cc: str, name: str) -> None:
+        if len(cc) != 2:
+            self._report_error(f"{name} must have length of 2 (got {len(cc)})")
 
-        self._line_number = 0
-        self.had_errors = False
+        if not cc.isalpha():
+            self._report_error(f"{name} must only be alphabetic characters")
 
-        for line in feed:
-            self._validate_line(line)
+        if cc.upper() != cc:
+            self._report_error(f"{name} must be all uppercase")
 
-    def set_output_stream(self, logfile: TextIO) -> None:
-        """Controls where the output messages go do (STDERR by default).
-
-        Use None to disable logging.
-
-        Args:
-          logfile: a file object (e.g., sys.stdout) or None.
-        """
-        self._output_stream = logfile
-
-    ############################################################
-    def _validate_line(self, line: str) -> bool:
+    def _check_line(self, line_number: int, line: str) -> None:
         line = line.rstrip("\r\n")
-        self._line_number += 1
-        self.line = line.split("#")[0]
-
-        if self._should_ignore_line(line):
+        if not line or line[0] == "#":
             return
 
-        fields = [field for field in csv.reader([line])][0]
+        self._line_number = line_number
+        self._line = line
 
-        res = self._validate_fields(fields)
-        self._flush_output_stream()
-        return res
-
-    def _should_ignore_line(self, line: str) -> bool:
-        line = line.strip()
-        if line.startswith("#"):
-            return True
-        return len(line) == 0
-
-    ############################################################
-    def _validate_fields(self, fields: list[str]) -> bool:
-        self._is_correct_line = True
-        self._line_region_country = ""
-        self._line_country = ""
-
-        if len(fields) > 0:
-            self._is_ip_address_or_prefix_correct(fields[0])
-
-        if len(fields) > 1:
-            self._is_alpha2_code_correct(fields[1], is_line_country=True)
-
-        if len(fields) > 2:
-            self._is_region_code_correct(fields[2])
-
-        if self._line_country and self._line_region_country and self._line_country != self._line_region_country:
-            self._report_error(
-                f"Country and Region country mismatch: Country {self._line_country} vs Region country {self._line_region_country}")
+        fields = line.split(",")
 
         if len(fields) != 5:
-            self._report_error(f"5 fields were expected (got {len(fields)})")
+            self._report_error(f"Expected 5 fields (got {len(fields)})")
 
-        return self._is_correct_line
+        if len(fields) >= 1:
+            try:
+                net = ip_network(fields[0])
+                if not net.is_global:
+                    self._report_error("Subnet is not global")
+            except ValueError as e:
+                self._report_error(f"Subnet invalid: {e}")
 
-    ############################################################
-    def _is_ip_address_or_prefix_correct(self, field: str) -> bool:
-        if "/" in field:
-            return self._is_cidr_correct(field)
-        return self._is_ip_address_correct(field)
+        country = ""
+        region = []
+        if len(fields) >= 2:
+            country = fields[1]
+            if country:
+                self._check_country_code(country, "Country code")
 
-    def _is_cidr_correct(self, cidr: str) -> bool:
-        try:
-            ipprefix = ipaddress.ip_network(cidr)
-            if ipprefix.is_private:
-                self._report_error("IP Address must not be private")
-                return False
-        except ValueError as e:
-            self._report_error(f"Invalid IP Network: {e}")
-            return False
-        return True
+        if len(fields) >= 3:
+            region_str = fields[2]
+            if region_str:
+                region = region_str.split("-")
+                if len(region) == 2:
+                    self._check_country_code(region[0], "Region country code")
 
-    def _is_ip_address_correct(self, ip_str: str) -> bool:
-        try:
-            ip = ipaddress.ip_address(ip_str)
-            if ip.is_private:
-                self._report_error("IP Address must not be private")
-                return False
-        except ValueError as e:
-            self._report_error(f"Invalid IP Address: {e}")
-            return False
-        return True
+                    region_code = region[1]
+                    if not region_code:
+                        self._report_error("Region code missing")
+                    else:
+                        if not region_code.isalpha():
+                            self._report_error(f"Region code must only be alphabetic characters")
 
-    ############################################################
-    def _is_alpha2_code_correct(self, alpha2_code: str, is_line_country: bool) -> bool:
-        if len(alpha2_code) == 0:
-            return True
+                        if region_code.upper() != region_code:
+                            self._report_error(f"Region code must be all uppercase")
+                else:
+                    self._report_error("Region must be of format [country code]-[region code] (ex: US-WA)")
 
-        if len(alpha2_code) != 2 or not alpha2_code.isalpha():
-            self._report_error(
-                "Alpha 2 code must be in the ISO 3166-1 alpha 2 format")
-            return False
+        if len(region) == 2 and country and country != region[0]:
+            self._report_error(f"Mismatch between country code ({country}) and region country code ({region[0]})")
 
-        if is_line_country:
-            self._line_country = alpha2_code
+    def write_errors(self, out: TextIO):
+        for err in self.errors:
+            out.write(f"Line {err.line_number} ({err.line}): {err.error}\n")
+        out.flush()
 
-        return True
+    def run(self, output: str) -> bool:
+        self.errors = []
 
-    def _is_region_code_correct(self, region_code: str) -> bool:
-        if len(region_code) == 0:
-            return True
+        lines = output.splitlines()
+        for i, line in enumerate(lines):
+            self._check_line(i, line)
 
-        if "-" not in region_code:
-            self._report_error("Region code must be in ISO 3166-2 format")
-            return False
-
-        parts = region_code.split("-")
-        if len(parts) != 2 or not self._is_alpha2_code_correct(parts[0], is_line_country=False):
-            return False
-
-        self._line_region_country = parts[0]
-
-        return True
-
-    ############################################################
-    def _report_error(self, message: str) -> None:
-        self.had_errors = True
-        if self._is_correct_line:
-            self._write_line(f"line {self._line_number}: {self.line}")
-        self._is_correct_line = False
-
-        self._write_line(f"    ERROR: {message}")
-
-    def _flush_output_stream(self) -> None:
-        if self._is_correct_line:
-            return
-        self._write_line("", flush=True)
-
-    def _write_line(self, line: str, flush: bool = False) -> None:
-        if self._output_stream is None:
-            return
-
-        self._output_stream.write(f"{line}\n")
-        if flush:
-            self._output_stream.flush()
-
-
-############################################################
-
-def main() -> None:
-    feed_validator = IPGeoFeedValidator()
-    feed_validator.validate(sys.stdin)
-
-    if feed_validator.had_errors:
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
+        return len(self.errors) == 0

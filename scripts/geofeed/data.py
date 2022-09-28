@@ -18,3 +18,10 @@ class GeoLoc:
 class IPNet:
     loc: GeoLoc
     subnet: str
+
+
+@dataclass(eq=True, frozen=True)
+class ValidationError:
+    line: str
+    line_number: int
+    error: str

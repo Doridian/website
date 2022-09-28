@@ -2,8 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from multiprocessing.sharedctypes import Value
-from os import stat, times
+from os import stat
 from sys import argv
 
 from geofeed_validator import IPGeoFeedValidator

@@ -6,11 +6,11 @@ from sys import argv, stdout
 from typing import TextIO
 
 from validator import IPGeoFeedValidator
-from config import subnets
+from config import subnets, __file__ as config_file
 
 
 def generate(out: TextIO) -> bool:
-    fstat = stat(__file__)
+    fstat = stat(config_file)
     ftime = datetime.fromtimestamp(fstat.st_mtime, tz=timezone.utc)
     timestr = ftime.isoformat(timespec="seconds")
 

@@ -33,9 +33,9 @@ def generate(out: TextIO) -> bool:
     hash = sha256()
     hash.update(output.encode("utf-8"))
 
-    out.write(f"# Doridian network Geofeed according to RFC 8805\n")
-    out.write(f"# Last update to the Geofeed: {timestr}\n")
-    out.write(f"# Subnets included in this file: {len(subnets)}\n")
+    out.write(f"# Doridian Network geofeed according to RFC 8805\n")
+    out.write(f"# Last update: {timestr}\n")
+    out.write(f"# Number of networks: {len(subnets)}\n")
     out.write(f"# Content SHA256 hash (excluding comments): {hash.hexdigest()}\n")
     out.write(output)
     out.write(f"# End of file\n")

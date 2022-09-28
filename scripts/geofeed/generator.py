@@ -20,7 +20,8 @@ def generate(out: TextIO) -> bool:
     ]
 
     for subnet in subnets:
-        lines.append(f"{subnet.subnet},{subnet.loc.country},{subnet.loc.state},{subnet.loc.city},{subnet.loc.zip}")
+        lines.append(
+            f"{subnet.subnet},{subnet.loc.country},{subnet.loc.state},{subnet.loc.city},{subnet.loc.zip}")
 
     validator = IPGeoFeedValidator()
     validator.validate(lines)

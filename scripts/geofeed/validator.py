@@ -131,7 +131,8 @@ class IPGeoFeedValidator:
             return True
 
         if len(alpha2_code) != 2 or not alpha2_code.isalpha():
-            self._report_error("Alpha 2 code must be in the ISO 3166-1 alpha 2 format")
+            self._report_error(
+                "Alpha 2 code must be in the ISO 3166-1 alpha 2 format")
             return False
         return True
 
@@ -179,6 +180,7 @@ def main() -> None:
 
     if feed_validator.had_errors:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

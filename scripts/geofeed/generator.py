@@ -19,7 +19,7 @@ def generate(out: TextIO) -> bool:
 
     for subnet in sorted(subnets):
         lines.append(
-            f"{subnet.subnet},{subnet.loc.country},{subnet.loc.region},{subnet.loc.city},{subnet.loc.zip}")
+            f"{subnet.subnet},{subnet.loc.country},{subnet.loc.full_region()},{subnet.loc.city},{subnet.loc.zip}")
 
     validator = IPGeoFeedValidator()
     validator.validate(lines)
@@ -36,7 +36,8 @@ def generate(out: TextIO) -> bool:
     out.write(f"# Doridian Network geofeed according to RFC 8805\n")
     out.write(f"# Last update: {timestr}\n")
     out.write(f"# Number of networks: {len(subnets)}\n")
-    out.write(f"# Content SHA256 hash (excluding comments): {hash.hexdigest()}\n")
+    out.write(
+        f"# Content SHA256 hash (excluding comments): {hash.hexdigest()}\n")
     out.write(output)
     out.write(f"# End of file\n")
     out.flush()

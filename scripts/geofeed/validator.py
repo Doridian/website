@@ -22,14 +22,19 @@ from typing import Iterable, TextIO
 
 
 class IPGeoFeedValidator:
-    line_number: int
-    output_stream: TextIO
-    is_correct_line: bool
     had_errors: bool
 
+    _line_number: int
+    _output_stream: TextIO
+    _is_correct_line: bool
+    _line_region_country: str
+    _line_country: str
+
     def __init__(self) -> None:
-        self.line_number = 0
-        self.is_correct_line = False
+        self._line_number = 0
+        self._is_correct_line = False
+        self._line_region_country = ""
+        self._line_country = ""
         self.had_errors = False
         self.set_output_stream(sys.stderr)
 
@@ -40,7 +45,7 @@ class IPGeoFeedValidator:
           feed: iterable with feed lines
         """
 
-        self.line_number = 0
+        self._line_number = 0
         self.had_errors = False
 
         for line in feed:
@@ -54,14 +59,13 @@ class IPGeoFeedValidator:
         Args:
           logfile: a file object (e.g., sys.stdout) or None.
         """
-        self.output_stream = logfile
+        self._output_stream = logfile
 
     ############################################################
     def _validate_line(self, line: str) -> bool:
         line = line.rstrip("\r\n")
-        self.line_number += 1
+        self._line_number += 1
         self.line = line.split("#")[0]
-        self.is_correct_line = True
 
         if self._should_ignore_line(line):
             return
@@ -81,21 +85,27 @@ class IPGeoFeedValidator:
     ############################################################
     def _validate_fields(self, fields: list[str]) -> bool:
         is_correct = True
+        self._is_correct_line = True
+        self._line_region_country = ""
+        self._line_country = ""
 
-        if len(fields) > 0 and not self._is_ip_address_or_prefix_correct(fields[0]):
-            is_correct = False
+        if len(fields) > 0:
+            self._is_ip_address_or_prefix_correct(fields[0])
 
-        if len(fields) > 1 and not self._is_alpha2_code_correct(fields[1]):
-            is_correct = False
+        if len(fields) > 1:
+            self._is_alpha2_code_correct(fields[1], is_line_country=True)
 
-        if len(fields) > 2 and not self._is_region_code_correct(fields[2]):
-            is_correct = False
+        if len(fields) > 2:
+            self._is_region_code_correct(fields[2])
+
+        if self._line_country and self._line_region_country and self._line_country != self._line_region_country:
+            self._report_error(
+                f"Country and Region country mismatch: Country {self._line_country} vs Region country {self._line_region_country}")
 
         if len(fields) != 5:
-            is_correct = False
             self._report_error(f"5 fields were expected (got {len(fields)})")
 
-        return is_correct
+        return self._is_correct_line
 
     ############################################################
     def _is_ip_address_or_prefix_correct(self, field: str) -> bool:
@@ -126,7 +136,7 @@ class IPGeoFeedValidator:
         return True
 
     ############################################################
-    def _is_alpha2_code_correct(self, alpha2_code: str) -> bool:
+    def _is_alpha2_code_correct(self, alpha2_code: str, is_line_country: bool) -> bool:
         if len(alpha2_code) == 0:
             return True
 
@@ -134,6 +144,10 @@ class IPGeoFeedValidator:
             self._report_error(
                 "Alpha 2 code must be in the ISO 3166-1 alpha 2 format")
             return False
+
+        if is_line_country:
+            self._line_country = alpha2_code
+
         return True
 
     def _is_region_code_correct(self, region_code: str) -> bool:
@@ -145,31 +159,34 @@ class IPGeoFeedValidator:
             return False
 
         parts = region_code.split("-")
-        if len(parts) != 2 or not self._is_alpha2_code_correct(parts[0]):
+        if len(parts) != 2 or not self._is_alpha2_code_correct(parts[0], is_line_country=False):
             return False
+
+        self._line_region_country = parts[0]
+
         return True
 
     ############################################################
     def _report_error(self, message: str) -> None:
         self.had_errors = True
-        if self.is_correct_line:
-            self._write_line(f"line {self.line_number}: {self.line}")
-        self.is_correct_line = False
+        if self._is_correct_line:
+            self._write_line(f"line {self._line_number}: {self.line}")
+        self._is_correct_line = False
 
         self._write_line(f"    ERROR: {message}")
 
     def _flush_output_stream(self) -> None:
-        if self.is_correct_line:
+        if self._is_correct_line:
             return
         self._write_line("", flush=True)
 
     def _write_line(self, line: str, flush: bool = False) -> None:
-        if self.output_stream is None:
+        if self._output_stream is None:
             return
 
-        self.output_stream.write(f"{line}\n")
+        self._output_stream.write(f"{line}\n")
         if flush:
-            self.output_stream.flush()
+            self._output_stream.flush()
 
 
 ############################################################

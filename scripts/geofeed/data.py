@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass(eq=True, frozen=True, order=True)
 class GeoLoc:
     country: str
-    state: str
+    region: str
     city: str
     zip: str
 

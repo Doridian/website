@@ -47,7 +47,7 @@ class GeoFeedValidator:
                 self._report_error(f"Subnet invalid: {e}")
 
         country = ""
-        region = []
+        region: list[str] = []
         if len(fields) >= 2:
             country = fields[1]
             if country:

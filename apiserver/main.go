@@ -48,19 +48,27 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 
 	fileInfo, err := fileObject.Info()
 	if err != nil {
+		log.Printf("Error getting ePaper file info: %v", err)
 		return err
 	}
 	file, err := epaperImages.Open(path.Join("epaper", fileName))
 	if err != nil {
+		log.Printf("Error getting ePaper file handle: %v", err)
 		return err
 	}
+
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 	w.Header().Add("Token", fileName)
 	w.WriteHeader(http.StatusOK)
 	_, err = io.Copy(w, file)
-	return err
+	if err != nil {
+		log.Printf("Error copying ePaper file data: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 func main() {

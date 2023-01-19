@@ -2,7 +2,9 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"math/rand"
 	"net/http"
@@ -11,27 +13,50 @@ import (
 
 //go:embed epaper/*
 var epaperImages embed.FS
+var epaperFiles []fs.DirEntry
+
+type HTTPErroringHandlerFunc = func(w http.ResponseWriter, r *http.Request) error
+
+type ErroringHTTPHandler struct {
+	subHandler HTTPErroringHandlerFunc
+}
+
+func (h *ErroringHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	err := h.subHandler(w, r)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error"))
+	}
+}
+
+func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
+	fileIndex := rand.Intn(len(epaperFiles))
+	fileObject := epaperFiles[fileIndex]
+	fileName := fileObject.Name()
+	fileInfo, err := fileObject.Info()
+	if err != nil {
+		return err
+	}
+	file, err := epaperImages.Open(path.Join("epaper", fileName))
+	if err != nil {
+		return err
+	}
+	w.Header().Add("Content-Type", "application/octet-stream")
+	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	w.WriteHeader(http.StatusOK)
+	_, err = io.Copy(w, file)
+	return err
+}
 
 func main() {
-	epaperFiles, err := epaperImages.ReadDir("epaper")
+	var err error
+	epaperFiles, err = epaperImages.ReadDir("epaper")
 	if err != nil {
 		panic(err)
 	}
 
-	http.HandleFunc("/api/e-paper-image", func(w http.ResponseWriter, r *http.Request) {
-		fileIndex := rand.Intn(len(epaperFiles))
-		fileName := epaperFiles[fileIndex].Name()
-		file, fileErr := epaperImages.Open(path.Join("epaper", fileName))
-		if fileErr != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Internal Server Error"))
-			return
-		}
-		w.Header().Add("Content-Type", "application/octet-stream")
-		w.Header().Add("File-Name", fileName)
-		w.WriteHeader(http.StatusOK)
-		io.Copy(w, file)
-	})
+	http.Handle("/api/e-paper-image", &ErroringHTTPHandler{subHandler: ePaperImageHandler})
 
 	log.Fatal(http.ListenAndServe("127.0.0.1:8080", nil))
 }

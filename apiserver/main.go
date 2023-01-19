@@ -30,9 +30,22 @@ func (h *ErroringHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
-	fileIndex := rand.Intn(len(epaperFiles))
+	token := r.URL.Query().Get("token")
+
+	var fileIndex int
+	if token == "" {
+		fileIndex = rand.Intn(len(epaperFiles))
+	} else {
+		fileIndex = rand.Intn(len(epaperFiles) - 1)
+
+		if epaperFiles[fileIndex].Name() == token {
+			fileIndex++
+		}
+	}
+
 	fileObject := epaperFiles[fileIndex]
 	fileName := fileObject.Name()
+
 	fileInfo, err := fileObject.Info()
 	if err != nil {
 		return err
@@ -44,6 +57,7 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	w.Header().Add("Token", fileName)
 	w.WriteHeader(http.StatusOK)
 	_, err = io.Copy(w, file)
 	return err

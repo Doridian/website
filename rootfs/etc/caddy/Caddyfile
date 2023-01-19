@@ -3,6 +3,8 @@ doridian.net {
     encode gzip
     file_server
 
+    reverse_proxy /api/* 127.0.0.1:8080
+
     log
 
     header {

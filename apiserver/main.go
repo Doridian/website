@@ -1,15 +1,15 @@
 package main
 
 import (
+	"crypto/rand"
 	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"path"
-	"time"
 )
 
 //go:embed epaper/*
@@ -33,15 +33,22 @@ func (h *ErroringHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 	token := r.URL.Query().Get("token")
 
-	var fileIndex int
-	if token == "" {
-		fileIndex = rand.Intn(len(epaperFiles))
-	} else {
-		fileIndex = rand.Intn(len(epaperFiles) - 1)
+	var fileIndexSize = int64(len(epaperFiles))
+	canEvade := false
+	if token != "" {
+		fileIndexSize--
+		canEvade = true
+	}
 
-		if epaperFiles[fileIndex].Name() == token {
-			fileIndex++
-		}
+	fileIndexBig, err := rand.Int(rand.Reader, big.NewInt(fileIndexSize))
+	if err != nil {
+		log.Printf("Error getting random ePaper file index: %v", err)
+		return err
+	}
+
+	fileIndex := fileIndexBig.Int64()
+	if canEvade && epaperFiles[fileIndex].Name() == token {
+		fileIndex++
 	}
 
 	fileObject := epaperFiles[fileIndex]
@@ -73,8 +80,6 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
 	var err error
 	epaperFiles, err = epaperImages.ReadDir("epaper")
 	if err != nil {

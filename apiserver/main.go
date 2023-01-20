@@ -15,7 +15,6 @@ const minRandBuffer = 3
 
 type epaperFile struct {
 	Name string
-	Size int64
 }
 
 var epaperDir = os.Getenv("EPAPER_DIR")
@@ -73,23 +72,11 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 
 	fileObject := epaperFilesHold[sequence[0]]
 
-	/*file, err := os.Open(path.Join(epaperDir, fileObject.Name))
-	if err != nil {
-		log.Printf("Error getting ePaper file handle: %v", err)
-		return err
-	}*/
-
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileObject.Name))
-	//w.Header().Add("Content-Length", fmt.Sprintf("%d", fileObject.Size))
 	w.Header().Add("Token", strings.Join(sequenceStr[1:], ","))
 	w.Header().Add("X-Accel-Redirect", epaperAccelDir+fileObject.Name)
 	w.WriteHeader(http.StatusOK)
-	/*_, err = io.Copy(w, file)
-	if err != nil {
-		log.Printf("Error copying ePaper file data: %v", err)
-		return err
-	}*/
 
 	return nil
 }
@@ -105,14 +92,8 @@ func loadFileList() {
 		if file.IsDir() || file.Name()[0] == '.' {
 			continue
 		}
-		fileInfo, err := file.Info()
-		if err != nil {
-			log.Printf("Error getting ePaper file %s info: %v", file.Name(), err)
-			continue
-		}
 		newEpaperFiles = append(newEpaperFiles, &epaperFile{
 			Name: file.Name(),
-			Size: fileInfo.Size(),
 		})
 	}
 

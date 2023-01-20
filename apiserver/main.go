@@ -18,7 +18,7 @@ import (
 var epaperImages embed.FS
 var epaperFiles []fs.DirEntry
 
-const minRandBuffer = 3
+var minRandBuffer = 3
 
 type HTTPErroringHandlerFunc = func(w http.ResponseWriter, r *http.Request) error
 
@@ -47,8 +47,12 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 		sequence = append(sequence, i)
 	}
 
-	if len(sequence) < minRandBuffer {
-		sequence = append(sequence, rand.Perm(len(epaperFiles))...)
+	if len(sequence) <= minRandBuffer {
+		newPerm := rand.Perm(len(epaperFiles))
+		if minRandBuffer > 1 && len(sequence) > 0 && newPerm[0] == sequence[len(sequence)-1] {
+			newPerm[0], newPerm[len(newPerm)-1] = newPerm[len(newPerm)-1], newPerm[0]
+		}
+		sequence = append(sequence, newPerm...)
 	}
 
 	sequenceStr = make([]string, 0, len(sequence))
@@ -91,6 +95,10 @@ func main() {
 	epaperFiles, err = epaperImages.ReadDir("epaper")
 	if err != nil {
 		panic(err)
+	}
+
+	if minRandBuffer > len(epaperFiles) {
+		minRandBuffer = len(epaperFiles)
 	}
 
 	http.Handle("/api/e-paper-image", &ErroringHTTPHandler{subHandler: ePaperImageHandler})

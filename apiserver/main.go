@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"path"
+	"time"
 )
 
 //go:embed epaper/*
@@ -72,6 +73,8 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	var err error
 	epaperFiles, err = epaperImages.ReadDir("epaper")
 	if err != nil {

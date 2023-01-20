@@ -1,2 +1,3 @@
 #!/bin/sh
+export EPAPER_DIR=/srv/epaper
 exec apiserver

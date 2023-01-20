@@ -1,24 +1,25 @@
 package main
 
 import (
-	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
 	"time"
 )
 
-//go:embed epaper/*
-var epaperImages embed.FS
+var epaperDir = os.Getenv("EPAPER_DIR")
 var epaperFiles []fs.DirEntry
 
-var minRandBuffer = 3
+const minRandBuffer = 3
+
+var minRandBufferCur = 3
 
 type HTTPErroringHandlerFunc = func(w http.ResponseWriter, r *http.Request) error
 
@@ -47,9 +48,9 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 		sequence = append(sequence, i)
 	}
 
-	if len(sequence) <= minRandBuffer {
+	if len(sequence) <= minRandBufferCur {
 		newPerm := rand.Perm(len(epaperFiles))
-		if minRandBuffer > 1 && len(sequence) > 0 && newPerm[0] == sequence[len(sequence)-1] {
+		if minRandBufferCur > 1 && len(sequence) > 0 && newPerm[0] == sequence[len(sequence)-1] {
 			newPerm[0], newPerm[len(newPerm)-1] = newPerm[len(newPerm)-1], newPerm[0]
 		}
 		sequence = append(sequence, newPerm...)
@@ -68,7 +69,7 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 		log.Printf("Error getting ePaper file info: %v", err)
 		return err
 	}
-	file, err := epaperImages.Open(path.Join("epaper", fileName))
+	file, err := os.Open(path.Join(epaperDir, fileName))
 	if err != nil {
 		log.Printf("Error getting ePaper file handle: %v", err)
 		return err
@@ -88,18 +89,36 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func main() {
-	rand.Seed(time.Now().UnixNano())
-
-	var err error
-	epaperFiles, err = epaperImages.ReadDir("epaper")
+func loadFileList() {
+	newEpaperFiles, err := os.ReadDir(epaperDir)
 	if err != nil {
 		panic(err)
 	}
 
-	if minRandBuffer > len(epaperFiles) {
-		minRandBuffer = len(epaperFiles)
+	newEpaperFilesFiltered := make([]fs.DirEntry, 0, len(newEpaperFiles))
+	for _, file := range newEpaperFiles {
+		if file.IsDir() || file.Name()[0] == '.' {
+			continue
+		}
+		newEpaperFilesFiltered = append(newEpaperFilesFiltered, file)
 	}
+
+	epaperFiles = newEpaperFilesFiltered
+
+	minRandBufferCur = minRandBuffer
+	if minRandBufferCur > len(epaperFiles) {
+		minRandBufferCur = len(epaperFiles)
+	}
+}
+
+func main() {
+	if epaperDir == "" {
+		epaperDir = "epaper"
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	loadFileList()
 
 	http.Handle("/api/e-paper-image", &ErroringHTTPHandler{subHandler: ePaperImageHandler})
 

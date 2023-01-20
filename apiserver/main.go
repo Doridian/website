@@ -1,20 +1,24 @@
 package main
 
 import (
-	"crypto/rand"
 	"embed"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
-	"math/big"
+	"math/rand"
 	"net/http"
 	"path"
+	"strconv"
+	"strings"
+	"time"
 )
 
 //go:embed epaper/*
 var epaperImages embed.FS
 var epaperFiles []fs.DirEntry
+
+const minRandBuffer = 3
 
 type HTTPErroringHandlerFunc = func(w http.ResponseWriter, r *http.Request) error
 
@@ -33,25 +37,26 @@ func (h *ErroringHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 	token := r.URL.Query().Get("token")
 
-	var fileIndexSize = int64(len(epaperFiles))
-	canEvade := false
-	if token != "" {
-		fileIndexSize--
-		canEvade = true
+	sequenceStr := strings.Split(token, ",")
+	sequence := make([]int, 0, len(sequenceStr))
+	for _, s := range sequenceStr {
+		i, err := strconv.Atoi(s)
+		if err != nil || i < 0 || i >= len(epaperFiles) {
+			continue
+		}
+		sequence = append(sequence, i)
 	}
 
-	fileIndexBig, err := rand.Int(rand.Reader, big.NewInt(fileIndexSize))
-	if err != nil {
-		log.Printf("Error getting random ePaper file index: %v", err)
-		return err
+	if len(sequence) < minRandBuffer {
+		sequence = append(sequence, rand.Perm(len(epaperFiles))...)
 	}
 
-	fileIndex := fileIndexBig.Int64()
-	if canEvade && epaperFiles[fileIndex].Name() == token {
-		fileIndex++
+	sequenceStr = make([]string, 0, len(sequence))
+	for _, i := range sequence {
+		sequenceStr = append(sequenceStr, strconv.Itoa(i))
 	}
 
-	fileObject := epaperFiles[fileIndex]
+	fileObject := epaperFiles[sequence[0]]
 	fileName := fileObject.Name()
 
 	fileInfo, err := fileObject.Info()
@@ -68,7 +73,7 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
-	w.Header().Add("Token", fileName)
+	w.Header().Add("Token", strings.Join(sequenceStr[1:], ","))
 	w.WriteHeader(http.StatusOK)
 	_, err = io.Copy(w, file)
 	if err != nil {
@@ -80,6 +85,8 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	var err error
 	epaperFiles, err = epaperImages.ReadDir("epaper")
 	if err != nil {
@@ -88,5 +95,6 @@ func main() {
 
 	http.Handle("/api/e-paper-image", &ErroringHTTPHandler{subHandler: ePaperImageHandler})
 
+	log.Print("Server ready, starting listener!")
 	log.Fatal(http.ListenAndServe("127.0.0.1:8080", nil))
 }

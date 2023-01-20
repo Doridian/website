@@ -7,7 +7,7 @@ doridian.net {
         @accel header X-Accel-Redirect *
         handle_response @accel {
             root * /srv
-            rewrite {http.response.header.X-Accel-Redirect}
+            rewrite * {http.response.header.X-Accel-Redirect}
             file_server
         }
     }

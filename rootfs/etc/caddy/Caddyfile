@@ -3,7 +3,14 @@ doridian.net {
     encode gzip
     file_server
 
-    reverse_proxy /api/* 127.0.0.1:8080
+    reverse_proxy /api/* 127.0.0.1:8080 {
+        @accel header X-Accel-Redirect *
+        handle_response @accel {
+            root * /srv
+            rewrite {http.response.header.X-Accel-Redirect}
+            file_server
+        }
+    }
 
     log
 

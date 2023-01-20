@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +19,7 @@ type epaperFile struct {
 }
 
 var epaperDir = os.Getenv("EPAPER_DIR")
+var epaperAccelDir = os.Getenv("EPAPER_ACCEL_DIR")
 var epaperFiles []*epaperFile
 
 type HTTPErroringHandlerFunc = func(w http.ResponseWriter, r *http.Request) error
@@ -74,22 +73,23 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 
 	fileObject := epaperFilesHold[sequence[0]]
 
-	file, err := os.Open(path.Join(epaperDir, fileObject.Name))
+	/*file, err := os.Open(path.Join(epaperDir, fileObject.Name))
 	if err != nil {
 		log.Printf("Error getting ePaper file handle: %v", err)
 		return err
-	}
+	}*/
 
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileObject.Name))
-	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileObject.Size))
+	//w.Header().Add("Content-Length", fmt.Sprintf("%d", fileObject.Size))
 	w.Header().Add("Token", strings.Join(sequenceStr[1:], ","))
+	w.Header().Add("X-Accel-Redirect", epaperAccelDir+fileObject.Name)
 	w.WriteHeader(http.StatusOK)
-	_, err = io.Copy(w, file)
+	/*_, err = io.Copy(w, file)
 	if err != nil {
 		log.Printf("Error copying ePaper file data: %v", err)
 		return err
-	}
+	}*/
 
 	return nil
 }
@@ -124,6 +124,9 @@ func loadFileList() {
 func main() {
 	if epaperDir == "" {
 		epaperDir = "epaper"
+	}
+	if epaperAccelDir == "" {
+		epaperAccelDir = "/" + epaperDir + "/"
 	}
 
 	rand.Seed(time.Now().UnixNano())

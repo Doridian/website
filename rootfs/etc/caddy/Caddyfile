@@ -6,7 +6,9 @@ doridian.net {
     reverse_proxy /api/* 127.0.0.1:8080 {
         @accel header X-Accel-Redirect *
         handle_response @accel {
-            copy_response_headers
+            copy_response_headers {
+                exclude X-Accel-Redirect
+            }
             root * /srv
             rewrite * {rp.header.X-Accel-Redirect}
             file_server

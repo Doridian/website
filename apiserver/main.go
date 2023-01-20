@@ -21,7 +21,7 @@ type epaperFile struct {
 }
 
 var epaperDir = os.Getenv("EPAPER_DIR")
-var epaperFiles []epaperFile
+var epaperFiles []*epaperFile
 
 type HTTPErroringHandlerFunc = func(w http.ResponseWriter, r *http.Request) error
 
@@ -73,16 +73,15 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	fileObject := epaperFilesHold[sequence[0]]
-	fileName := fileObject.Name
 
-	file, err := os.Open(path.Join(epaperDir, fileName))
+	file, err := os.Open(path.Join(epaperDir, fileObject.Name))
 	if err != nil {
 		log.Printf("Error getting ePaper file handle: %v", err)
 		return err
 	}
 
 	w.Header().Add("Content-Type", "application/octet-stream")
-	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileObject.Name))
 	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileObject.Size))
 	w.Header().Add("Token", strings.Join(sequenceStr[1:], ","))
 	w.WriteHeader(http.StatusOK)
@@ -101,7 +100,7 @@ func loadFileList() {
 		panic(err)
 	}
 
-	newEpaperFiles := make([]epaperFile, len(newEpaperFilesDirEnt))
+	newEpaperFiles := make([]*epaperFile, 0, len(newEpaperFilesDirEnt))
 	for _, file := range newEpaperFilesDirEnt {
 		if file.IsDir() || file.Name()[0] == '.' {
 			continue
@@ -111,11 +110,13 @@ func loadFileList() {
 			log.Printf("Error getting ePaper file %s info: %v", file.Name(), err)
 			continue
 		}
-		newEpaperFiles = append(newEpaperFiles, epaperFile{
+		newEpaperFiles = append(newEpaperFiles, &epaperFile{
 			Name: file.Name(),
 			Size: fileInfo.Size(),
 		})
 	}
+
+	log.Printf("Found %d files!", len(newEpaperFiles))
 
 	epaperFiles = newEpaperFiles
 }

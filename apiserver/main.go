@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"math/rand"
 	"net/http"
@@ -14,12 +13,15 @@ import (
 	"time"
 )
 
-var epaperDir = os.Getenv("EPAPER_DIR")
-var epaperFiles []fs.DirEntry
-
 const minRandBuffer = 3
 
-var minRandBufferCur = 3
+type epaperFile struct {
+	Name string
+	Size int64
+}
+
+var epaperDir = os.Getenv("EPAPER_DIR")
+var epaperFiles []epaperFile
 
 type HTTPErroringHandlerFunc = func(w http.ResponseWriter, r *http.Request) error
 
@@ -38,37 +40,41 @@ func (h *ErroringHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 	token := r.URL.Query().Get("token")
 
+	epaperFilesHold := epaperFiles // So we can live reload!
+	epaperFilesHoldLen := len(epaperFilesHold)
+
 	sequenceStr := strings.Split(token, ",")
 	sequence := make([]int, 0, len(sequenceStr))
 	for _, s := range sequenceStr {
 		i, err := strconv.Atoi(s)
-		if err != nil || i < 0 || i >= len(epaperFiles) {
+		if err != nil || i < 0 || i >= epaperFilesHoldLen {
 			continue
 		}
 		sequence = append(sequence, i)
 	}
+	sequenceLen := len(sequence)
 
-	if len(sequence) <= minRandBufferCur {
-		newPerm := rand.Perm(len(epaperFiles))
-		if minRandBufferCur > 1 && len(sequence) > 0 && newPerm[0] == sequence[len(sequence)-1] {
-			newPerm[0], newPerm[len(newPerm)-1] = newPerm[len(newPerm)-1], newPerm[0]
+	minRandBufferCur := minRandBuffer
+	if minRandBufferCur > epaperFilesHoldLen {
+		minRandBufferCur = epaperFilesHoldLen
+	}
+
+	if sequenceLen <= minRandBufferCur {
+		newPerm := rand.Perm(epaperFilesHoldLen)
+		if minRandBufferCur > 1 && sequenceLen > 0 && newPerm[0] == sequence[sequenceLen-1] {
+			newPerm[0], newPerm[epaperFilesHoldLen-1] = newPerm[epaperFilesHoldLen-1], newPerm[0]
 		}
 		sequence = append(sequence, newPerm...)
 	}
 
-	sequenceStr = make([]string, 0, len(sequence))
+	sequenceStr = make([]string, 0, sequenceLen)
 	for _, i := range sequence {
 		sequenceStr = append(sequenceStr, strconv.Itoa(i))
 	}
 
-	fileObject := epaperFiles[sequence[0]]
-	fileName := fileObject.Name()
+	fileObject := epaperFilesHold[sequence[0]]
+	fileName := fileObject.Name
 
-	fileInfo, err := fileObject.Info()
-	if err != nil {
-		log.Printf("Error getting ePaper file info: %v", err)
-		return err
-	}
 	file, err := os.Open(path.Join(epaperDir, fileName))
 	if err != nil {
 		log.Printf("Error getting ePaper file handle: %v", err)
@@ -77,7 +83,7 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 
 	w.Header().Add("Content-Type", "application/octet-stream")
 	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
-	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	w.Header().Add("Content-Length", fmt.Sprintf("%d", fileObject.Size))
 	w.Header().Add("Token", strings.Join(sequenceStr[1:], ","))
 	w.WriteHeader(http.StatusOK)
 	_, err = io.Copy(w, file)
@@ -90,25 +96,28 @@ func ePaperImageHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func loadFileList() {
-	newEpaperFiles, err := os.ReadDir(epaperDir)
+	newEpaperFilesDirEnt, err := os.ReadDir(epaperDir)
 	if err != nil {
 		panic(err)
 	}
 
-	newEpaperFilesFiltered := make([]fs.DirEntry, 0, len(newEpaperFiles))
-	for _, file := range newEpaperFiles {
+	newEpaperFiles := make([]epaperFile, len(newEpaperFilesDirEnt))
+	for _, file := range newEpaperFilesDirEnt {
 		if file.IsDir() || file.Name()[0] == '.' {
 			continue
 		}
-		newEpaperFilesFiltered = append(newEpaperFilesFiltered, file)
+		fileInfo, err := file.Info()
+		if err != nil {
+			log.Printf("Error getting ePaper file %s info: %v", file.Name(), err)
+			continue
+		}
+		newEpaperFiles = append(newEpaperFiles, epaperFile{
+			Name: file.Name(),
+			Size: fileInfo.Size(),
+		})
 	}
 
-	epaperFiles = newEpaperFilesFiltered
-
-	minRandBufferCur = minRandBuffer
-	if minRandBufferCur > len(epaperFiles) {
-		minRandBufferCur = len(epaperFiles)
-	}
+	epaperFiles = newEpaperFiles
 }
 
 func main() {

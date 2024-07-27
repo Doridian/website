@@ -1,4 +1,2 @@
 #!/bin/sh
-export EPAPER_DIR=/srv/epaper
-export EPAPER_ACCEL_DIR=/epaper/
 exec apiserver

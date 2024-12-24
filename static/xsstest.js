@@ -7,17 +7,15 @@ try {
 } catch {}
 
 (function() {
-    const eles = document.getElementsByTagName("script");
+    const eles = document.getElementsByTagName('script');
     for (let i = 0; i < eles.length; i++) {
         const ele = eles[i];
-        if (ele.src === 'https://doridian.net/xsstest.js') {
+        const src = ele.src.toLowerCase();
+        if (src.includes('//doridian.net/') || src.includes('//f0x.es/')) {
             window._xss_doridian_found = true;
-            const img = document.createElement("img");
-            img.src = "https://doridian.net/icon.jpg";
+            const img = document.createElement('img');
+            img.src = 'https://doridian.net/icon.jpg';
             ele.parentNode.replaceChild(img, ele);
         }
-    }
-    if (!window._xss_doridian_found) {
-        alert("XSS valid, but no img found :(");
     }
 })();

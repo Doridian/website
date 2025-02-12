@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS golang
+FROM golang:1.24-alpine AS golang
 
 ENV CGO_ENABLED=0
 COPY apiserver /src/apiserver

@@ -3,9 +3,6 @@ doridian.net {
     encode gzip
     file_server
 
-    redir /.well-known/host-meta* https://fed.brid.gy{uri}
-    redir /.well-known/webfinger* https://fed.brid.gy{uri}
-
     reverse_proxy /api/* 127.0.0.1:8080 {
         @accel header X-Accel-Redirect *
         handle_response @accel {
